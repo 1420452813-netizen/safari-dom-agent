@@ -165,7 +165,7 @@ def _ensure_safari_front(retries: int = 5) -> bool:
 def _confirm_dialog(submit_target=None, rounds: int = 4, wait_each: float = 8.0) -> bool:
     """
     按「源码级弹窗结构」点掉确认流程：
-      真实页面点最终提交后会依次弹出 ivu-modal（如 IP 校验「我知道了」）
+      提交后会依次弹出平台自己的提示层（如网络校验类「我知道了」）
       → #submit-exam-confirmation-popup（真正确认），所以要循环点，不能只点一次。
     每轮：找可见弹窗 → DOM click 主按钮 → 校验消失；不生效则退化为真实鼠标点击。
     全程不截图。

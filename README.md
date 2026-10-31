@@ -172,12 +172,57 @@ python dom_main.py submit    # 提交（不可逆，需显式调用）
 
 <br>
 
+## 适配到其它站点
+
+读取层不写死任何站点的类名。题容器、题干容器、提交按钮、确认弹窗、按钮文案全部来自一份 profile——换站点只改配置，不动代码。
+
+**加载顺序**（命中即用）：
+
+1. 环境变量 `TRONCLASS_PROFILE=/path/to/profile.json`
+2. `~/.tronclass/profile.json` ← 真实站点配置放这里，不进仓库
+3. `profiles/example-spa.json` ← 仓库内示例，对应仿真页
+4. 内置默认值（与示例等价，保证任何情况下都能启动）
+
+**最小可用配置**：
+
+```json
+{
+  "question": { "containers": ["li.q-item"] },
+  "submit":   { "selectors": ["a.submit-btn"], "textMatch": [] },
+  "confirm":  { "modalSelectors": [".modal"] }
+}
+```
+
+未出现的字段自动回落到默认值，所以可以只写差异部分。
+
+| 字段 | 作用 |
+| --- | --- |
+| `question.containers` | 题项容器选择器，按顺序尝试，取第一个有命中的 |
+| `question.stemTitle` | 题干专用容器；命中则直接取文本 |
+| `question.stemStrip` | 提取题干时从克隆节点剔除的选择器 |
+| `submit.selectors` | 提交按钮选择器 |
+| `submit.textMatch` | 按钮文本约束；空数组 = 不约束（纯选择器定位） |
+| `submit.skipAncestors` | 文字兜底时排除的祖先（隐藏弹窗里的同名按钮） |
+| `confirm.texts` | 确认按钮文本（完全相等匹配） |
+| `confirm.modalAcceptTexts` / `modalRejectTexts` | 弹窗内确认 / 取消按钮的包含式匹配词 |
+| `confirm.modalSelectors` | 弹窗容器选择器 |
+| `confirm.hiddenMarkers` | 表示「已隐藏」的 class 名 |
+
+**校准流程**：Safari 打开目标页 → 用 Web 检查器确定题容器与提交按钮 → 写 `~/.tronclass/profile.json` → `python dom_main.py read` 看题数与题型是否识别正确 → 再跑 `apply`。全程无需改 Python。
+
+> 仓库里之所以只放一个「通用表单」示例，是有意为之：profile 里的类名与文案等价于一份站点指纹，公开它等于公开目标站点。示例页 `tests/mock_exam.html` 同样保持中立（四个字母选项、通用类名、确认弹窗），只用于验证结构而非复刻某个站点。
+
+<br>
+
 ## 工程结构
 
 ```
 .
 ├── dom_main.py              # 四阶段 CLI 调度：read / solve / apply / submit
 ├── dom_reader.py            # DOM 读取、剪枝、事件回填、回读断言、执行通道管理
+├── dom_profile.py           # 站点适配层：加载 profile、注入 JS 模板
+├── profiles/
+│   └── example-spa.json     # 通用示例（对应 tests/mock_exam.html）；真实站点配置不入库
 ├── text_solver.py           # 并发推理、结构化输出解析、Token 计数
 ├── config.example.py        # 配置模板（真实 Key 不入库）
 ├── Launcher.swift           # SwiftUI 启动器（ObservableObject，零宏依赖）
@@ -189,7 +234,7 @@ python dom_main.py submit    # 提交（不可逆，需显式调用）
 │   ├── benchmark_eval.py          # 本项目基准采集
 │   ├── benchmark_eval_legacy.py   # 基线基准采集
 │   ├── benchmark_results.json     # 上表原始数据
-│   └── mock_exam.html             # 结构仿真页，零风险回归
+│   └── mock_exam.html             # 通用表单结构仿真页，零风险回归
 └── docs/ENGINEERING.md      # 完整工程笔记：页面结构、TCC 排查、坑位实录
 ```
 

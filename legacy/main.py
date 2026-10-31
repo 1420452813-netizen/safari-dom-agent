@@ -35,7 +35,7 @@ class AutoSolver:
     # ---------- 入口 ----------
     def run(self) -> None:
         print("=" * 60)
-        print("  TronClass 全辅助评估系统 已启动")
+        print("  Web Agent 全辅助评估系统 已启动")
         print(f"  提供方: {config.PROVIDER} | 模型: {config.active_model()}")
         print(f"  页面模式: {config.PAGE_MODE} | DryRun: {config.DRY_RUN}")
         print("  3 秒后开始，请切换到受测页面…")
@@ -261,7 +261,7 @@ class AutoSolver:
 
     # ---------- 结束提示 ----------
     def _done(self) -> None:
-        msg = "TronClass 辅助评估：全部题项已完成"
+        msg = "Web Agent：全部题项已完成"
         print("\n" + "=" * 60)
         print(" " + msg)
         print("=" * 60)
@@ -271,7 +271,7 @@ class AutoSolver:
             if sys.platform == "darwin":
                 subprocess.run(
                     ["osascript", "-e",
-                     'display notification "全部题项已完成" with title "TronClass 辅助评估" sound name "Glass"'],
+                     'display notification "全部题项已完成" with title "Web Agent" sound name "Glass"'],
                     check=False,
                 )
             elif sys.platform.startswith("win"):

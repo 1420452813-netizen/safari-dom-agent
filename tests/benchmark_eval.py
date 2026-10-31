@@ -11,7 +11,7 @@
 #   tokens   智谱 API 返回的 usage.prompt/completion/total（单题平均 = 总量 / n）
 #
 # 前置条件（真实环境）：
-#   1) Safari 已打开并停留在 lms.eurasia.edu 受测页面（DOMRunner 通道已授权）
+#   1) Safari 已打开并停留在目标站点的受测页面（DOMRunner 通道已授权）
 #   2) 已配置 ZHIPU_API_KEY（~/.tronclass/config.json 或环境变量）
 #
 # 用法：  .venv/bin/python tests/benchmark_eval.py

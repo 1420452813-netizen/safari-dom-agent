@@ -38,3 +38,7 @@ build_app/
 build/
 dist/
 *.spec
+
+# ===== 本地站点适配配置（含真实站点的类名与文案，绝不入库）=====
+profiles/local*.json
+profiles/*-local.json

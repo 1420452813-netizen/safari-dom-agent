@@ -1,0 +1,21 @@
+{
+  "name": "example-spa",
+  "description": "对应 tests/mock_exam.html 的通用示例。真实站点请复制到 ~/.tronclass/profile.json 后按实际 DOM 改写，不要提交回仓库。",
+  "question": {
+    "containers": ["li.q-item", ".q-item", "[data-question]", ".question-item"],
+    "stemTitle": [".q-stem", ".stem", ".question-title"],
+    "stemStrip": ["ol", "ul", ".q-options", ".options", "input", "textarea", "label"]
+  },
+  "submit": {
+    "selectors": ["a.submit-btn", "button.submit-btn", "div.form-footer button.submit-btn"],
+    "textMatch": [],
+    "skipAncestors": [".modal", ".popup-area"]
+  },
+  "confirm": {
+    "texts": ["确定", "确认", "提交", "继续", "是"],
+    "modalAcceptTexts": ["确定", "确认", "提交", "继续", "是", "我知道了"],
+    "modalRejectTexts": ["取消", "关闭", "返回", "再想想"],
+    "modalSelectors": [".modal", ".popup-area"],
+    "hiddenMarkers": ["is-hidden"]
+  }
+}

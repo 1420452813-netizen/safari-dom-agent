@@ -2,37 +2,36 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
-<title>马克思主义基本原理-模拟卷（四类题型结构仿真）</title>
+<title>通用 SPA 表单结构仿真（四类字段）</title>
 <style>
   body{margin:0;font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f6f8;color:#222}
   .topbar{position:fixed;top:0;left:0;right:0;height:56px;background:#fff;
           box-shadow:0 1px 4px rgba(0,0,0,.08);display:flex;align-items:center;
           justify-content:space-between;padding:0 24px;z-index:10}
   .topbar .title{font-size:16px;font-weight:600}
-  /* 提交按钮：刻意使用真实页面的 teal + 首选选择器 class，用于验证源码定位 */
-  a.button.full-screen-header-button.button-green{background:rgb(32,190,200);color:#fff;
-          padding:8px 22px;border-radius:4px;text-decoration:none;font-size:14px;
-          line-height:22px;display:inline-block;cursor:pointer}
+  /* 提交按钮：普通 <a>，用于验证「DOM click 对 <a> 无效，必须真实鼠标事件」这一行为 */
+  a.submit-btn{background:#2563eb;color:#fff;padding:8px 22px;border-radius:4px;
+          text-decoration:none;font-size:14px;line-height:22px;display:inline-block;cursor:pointer}
   .wrap{display:flex;padding-top:56px}
   .cardbar{width:200px;flex:0 0 200px;background:#fff;margin:16px;padding:12px;
            border-radius:6px;height:calc(100vh - 120px);position:sticky;top:72px}
   .cardbar h4{margin:0 0 10px;font-size:14px}
-  #cnt{font-weight:700;color:rgb(32,190,200)}
+  #cnt{font-weight:700;color:#2563eb}
   .main{flex:1;padding:16px 24px 80px}
-  .subject{background:#fff;border-radius:6px;padding:16px 20px;margin-bottom:14px;list-style:none}
-  .subject .stem{font-size:15px;line-height:1.6;margin-bottom:10px}
-  .subject .no{display:inline-block;min-width:26px;color:rgb(32,190,200);font-weight:600}
+  .q-item{background:#fff;border-radius:6px;padding:16px 20px;margin-bottom:14px;list-style:none}
+  .q-item .stem{font-size:15px;line-height:1.6;margin-bottom:10px}
+  .q-item .no{display:inline-block;min-width:26px;color:#2563eb;font-weight:600}
   .opt{display:block;margin:8px 0;font-size:14px;line-height:22px;cursor:pointer}
   .opt input{margin-right:8px;vertical-align:middle}
-  .opt.done{color:rgb(32,190,200);font-weight:600}   /* 选中高亮也是 teal —— 复刻真实页面坑 */
+  /* 选中高亮与主题色同色 —— 复刻「无法靠颜色判断选中态」的坑 */
+  .opt.done{color:#2563eb;font-weight:600}
   .fillinp{width:340px;padding:8px;border:1px solid #ccd;border-radius:4px;font-size:14px}
-  .mask{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:20}
-  /* 确认弹窗：真实页面的 reveal-modal + 固定 id，用于验证源码定位 */
-  #submit-exam-confirmation-popup.reveal-modal.confirmation-popup{
+  /* 确认弹窗：fixed 定位 + 独立容器，用于验证 modalSelectors 与隐藏判定 */
+  .modal.confirm-dialog{
           display:none;position:fixed;left:50%;top:40%;transform:translate(-50%,-50%);
           background:#fff;border-radius:8px;padding:24px 32px;z-index:21;text-align:center}
-  #submit-exam-confirmation-popup.reveal-modal.confirmation-popup p{margin:0 0 18px;font-size:15px}
-  .btn-primary{background:rgb(32,190,200);color:#fff;border:0;padding:8px 28px;border-radius:4px;
+  .modal.confirm-dialog p{margin:0 0 18px;font-size:15px}
+  .btn-primary{background:#2563eb;color:#fff;border:0;padding:8px 28px;border-radius:4px;
               font-size:14px;cursor:pointer}
   .btn-cancel{background:#eee;color:#333;border:0;padding:8px 28px;border-radius:4px;
               font-size:14px;cursor:pointer;margin-left:8px}
@@ -43,70 +42,70 @@
 <body>
 
 <div class="topbar">
-  <div class="title">马克思主义基本原理-模拟卷</div>
-  <a class="button full-screen-header-button button-green" href="javascript:void(0)" onclick="openConfirm()">交卷</a>
+  <div class="title">示例表单：四类字段结构</div>
+  <a class="submit-btn" href="javascript:void(0)" onclick="openConfirm()">提交</a>
 </div>
 
 <div class="wrap">
   <aside class="cardbar">
-    <h4>答题卡 已答 <span id="cnt">0</span>/5 题</h4>
+    <h4>进度 <span id="cnt">0</span>/5</h4>
   </aside>
 
   <main class="main">
     <ul style="padding:0;margin:0">
-      <!-- 1) 单选题：4 个 radio -->
-      <li class="subject single_selection" id="q1">
-        <div class="stem"><span class="no">1.</span>（单选题）马克思主义产生于？</div>
-        <label class="opt"><input type="radio" name="q1"> A . 19世纪40年代</label>
-        <label class="opt"><input type="radio" name="q1"> B . 18世纪60年代</label>
-        <label class="opt"><input type="radio" name="q1"> C . 20世纪初</label>
-        <label class="opt"><input type="radio" name="q1"> D . 17世纪</label>
+      <!-- 1) 单选：4 个 radio -->
+      <li class="q-item q-single" id="q1">
+        <div class="stem"><span class="no">1.</span>下列哪个数不是质数？</div>
+        <label class="opt"><input type="radio" name="q1"> A . 2</label>
+        <label class="opt"><input type="radio" name="q1"> B . 9</label>
+        <label class="opt"><input type="radio" name="q1"> C . 11</label>
+        <label class="opt"><input type="radio" name="q1"> D . 13</label>
       </li>
 
-      <!-- 2) 多选题：4 个 checkbox -->
-      <li class="subject multiple_selection" id="q2">
-        <div class="stem"><span class="no">2.</span>（多选题）下列哪些属于马克思主义三个组成部分？</div>
-        <label class="opt"><input type="checkbox" name="q2"> A . 马克思主义哲学</label>
-        <label class="opt"><input type="checkbox" name="q2"> B . 马克思主义政治经济学</label>
-        <label class="opt"><input type="checkbox" name="q2"> C . 科学社会主义</label>
-        <label class="opt"><input type="checkbox" name="q2"> D . 古典政治经济学</label>
+      <!-- 2) 多选：4 个 checkbox -->
+      <li class="q-item q-multi" id="q2">
+        <div class="stem"><span class="no">2.</span>下列哪些是偶数？</div>
+        <label class="opt"><input type="checkbox" name="q2"> A . 4</label>
+        <label class="opt"><input type="checkbox" name="q2"> B . 7</label>
+        <label class="opt"><input type="checkbox" name="q2"> C . 10</label>
+        <label class="opt"><input type="checkbox" name="q2"> D . 15</label>
       </li>
 
-      <!-- 3) 判断题：2 个 radio（A.正确 / B.错误） -->
-      <li class="subject true_false_selection" id="q3">
-        <div class="stem"><span class="no">3.</span>（判断题）运动是物质的根本属性。</div>
+      <!-- 3) 判断：2 个 radio -->
+      <li class="q-item q-bool" id="q3">
+        <div class="stem"><span class="no">3.</span>0 既不是正数也不是负数。</div>
         <label class="opt"><input type="radio" name="q3"> A . 正确</label>
         <label class="opt"><input type="radio" name="q3"> B . 错误</label>
       </li>
 
-      <!-- 4) 填空题：text input -->
-      <li class="subject fill_blank" id="q4">
-        <div class="stem"><span class="no">4.</span>（填空题）唯物辩证法的总特征是______和______。</div>
-        <input type="text" class="fillinp" name="q4" placeholder="请输入答案">
+      <!-- 4) 填空：text input -->
+      <li class="q-item q-fill" id="q4">
+        <div class="stem"><span class="no">4.</span>一年有______个月，一周有______天。</div>
+        <input type="text" class="fillinp" name="q4" placeholder="请输入">
       </li>
 
-      <!-- 5) 单选题：4 个 radio（含历史易错项） -->
-      <li class="subject single_selection" id="q5">
-        <div class="stem"><span class="no">5.</span>（单选题）商品的二因素是？</div>
-        <label class="opt"><input type="radio" name="q5"> A . 使用价值和交换价值</label>
-        <label class="opt"><input type="radio" name="q5"> B . 使用价值和价值</label>
-        <label class="opt"><input type="radio" name="q5"> C . 价值和价格</label>
-        <label class="opt"><input type="radio" name="q5"> D . 具体劳动和抽象劳动</label>
+      <!-- 5) 单选：4 个 radio -->
+      <li class="q-item q-single" id="q5">
+        <div class="stem"><span class="no">5.</span>1 小时等于多少秒？</div>
+        <label class="opt"><input type="radio" name="q5"> A . 360</label>
+        <label class="opt"><input type="radio" name="q5"> B . 3600</label>
+        <label class="opt"><input type="radio" name="q5"> C . 6000</label>
+        <label class="opt"><input type="radio" name="q5"> D . 86400</label>
       </li>
     </ul>
   </main>
 </div>
 
-<!-- 确认弹窗（真实页面结构：reveal-modal + 固定 id） -->
-<div id="submit-exam-confirmation-popup" class="reveal-modal confirmation-popup">
-  <p>确定提交试卷吗？</p>
+<!-- 确认弹窗 -->
+<div class="modal confirm-dialog" id="confirmDialog">
+  <p>确定提交吗？</p>
   <button class="btn-primary" id="btnOk" onclick="confirmSubmit(true)">确定</button>
   <button class="btn-cancel" onclick="confirmSubmit(false)">取消</button>
 </div>
 <div class="toast" id="toast"></div>
 
 <script>
-// 答题卡：统计已选 radio / checkbox + 非空 text
+// 进度统计：已选 radio / checkbox + 非空 text
 function updateCard(){
   var n = 0;
   document.querySelectorAll('input[type=radio], input[type=checkbox]').forEach(function(e){ if(e.checked) n++; });
@@ -116,7 +115,7 @@ function updateCard(){
 document.addEventListener('change', updateCard);
 document.addEventListener('input', updateCard);
 
-// 选中高亮（teal）—— 复刻真实页面「teal 也是已选高亮色」的坑
+// 选中高亮
 document.querySelector('.main').addEventListener('change', function(e){
   var lab = e.target.closest('.opt');
   if (!lab) return;
@@ -124,16 +123,16 @@ document.querySelector('.main').addEventListener('change', function(e){
   lab.classList.add('done');
 });
 
-// 提交：真实页面 <a> 只认真实鼠标事件 —— 这里也用 mousedown 计数验证
+// <a> 只认真实鼠标事件 —— 用 mousedown 计数验证
 window.__submitClicks = 0;
-document.querySelector('a.button.full-screen-header-button.button-green')
+document.querySelector('a.submit-btn')
   .addEventListener('mousedown', function(){ window.__submitClicks++; });
 
 function openConfirm(){
-  document.getElementById('submit-exam-confirmation-popup').style.display = 'block';
+  document.getElementById('confirmDialog').style.display = 'block';
 }
 function confirmSubmit(ok){
-  var m = document.getElementById('submit-exam-confirmation-popup');
+  var m = document.getElementById('confirmDialog');
   m.style.display = 'none';
   if (ok){
     window.__confirmed = true;

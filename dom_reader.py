@@ -24,12 +24,14 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 import config
+from dom_profile import PROFILE, PROFILE_SOURCE, inject
 
 # ---------------- 读题：题干 + 选项 + 当前选中状态 ----------------
-JS_READ = r"""
+JS_READ = inject(r"""
 (function(){
   // ASCII-safe JSON：把非 ASCII 字符转成 \uXXXX。
   // 必须这么做：AppleScript 的 write 用系统主编码（本机是 GBK）落盘，
@@ -39,9 +41,12 @@ JS_READ = r"""
       return '\\u' + ('0000' + c.charCodeAt(0).toString(16)).slice(-4);
     });
   }
-  // 题容器：TronClass 各题型都用 li[class*="subject"] 结构（单选实测为 li.subject.single_selection）。
-  // 用宽泛选择器优先抓住所有题型，再按内部 input 类型细分；找不到时退到更通用的候选。
-  var CONTAINER_SELS = ['li[class*="subject"]', 'li.subject', '.subject-item', 'div.q', '.question-item', '[class*=question]'];
+  // P 由 Python 侧注入（dom_profile.py）：站点相关的类名/文案全部来自 profile，
+  // 本文件不再含任何目标站点的字面量。
+  var P = __PROFILE__;
+
+  // 题容器：按 profile 顺序尝试，取第一个有命中的；再按内部 input 类型细分题型。
+  var CONTAINER_SELS = P.question.containers;
   var conts = [];
   for (var s=0; s<CONTAINER_SELS.length; s++){
     var c = document.querySelectorAll(CONTAINER_SELS[s]);
@@ -71,11 +76,14 @@ JS_READ = r"""
   function stemOf(cont) {
     if (!cont) return '';
     // 1. 优先尝试直接抓取题干专用容器
-    var titleEl = cont.querySelector('.subject-title, .question-title, .stem, .title');
+    var titleEl = null;
+    for (var t=0; t<P.question.stemTitle.length && !titleEl; t++){
+      titleEl = cont.querySelector(P.question.stemTitle[t]);
+    }
     if (titleEl) return (titleEl.innerText || '').replace(/\s+/g, ' ').trim();
     // 2. 深度克隆节点，移除非题干元素（选项列表、解析、题卡锚点）
     var clone = cont.cloneNode(true);
-    var removeSels = ['ol', 'ul', '.subject-options', '.options', '.answers', 'input', 'textarea', 'label'];
+    var removeSels = P.question.stemStrip;
     for (var i = 0; i < removeSels.length; i++) {
       var nodes = clone.querySelectorAll(removeSels[i]);
       for (var j = 0; j < nodes.length; j++) {
@@ -115,17 +123,24 @@ JS_READ = r"""
     out.push({index: q, type: type, question: question, options: options, current: current});
   }
 
-  // 【提交】按钮定位：源码选择器优先，文字兜底（DOM click 对 <a> 无效，需真实鼠标）
-  // ⚠️ 下面字符串是目标页面按钮的**真实文本**，属于匹配契约：
-  //    国际化、术语替换、机器翻译都会让它失配，进而静默点到错误元素。请勿改写。
+  // 【提交】按钮定位：profile 选择器优先，文字兜底（DOM click 对 <a> 无效，需真实鼠标）
+  // 文本约束来自 P.submit.textMatch（空数组 = 不约束，适用于纯选择器定位的站点）。
+  function submitTextOk(s){
+    var TM = P.submit.textMatch;
+    if (!TM.length) return true;
+    for (var m=0; m<TM.length; m++){
+      if (s === TM[m]) return true;
+      if (s.indexOf(TM[m]) >= 0 && s.length <= 6) return true;
+    }
+    return false;
+  }
   var submitInfo = null;
-  var SUBSEL = ['a.button.full-screen-header-button.button-green', 'a.full-screen-header-button',
-               'div.paper-footer a.button.button-green', 'div.paper-footer a.button'];
+  var SUBSEL = P.submit.selectors;
   for (var i=0; i<SUBSEL.length && !submitInfo; i++){
     var els = document.querySelectorAll(SUBSEL[i]);
     for (var j=0; j<els.length; j++){
       var t = (els[j].innerText || '').replace(/\s+/g,'');
-      if (t && t.indexOf('交卷') < 0) continue;
+      if (t && !submitTextOk(t)) continue;
       var r = els[j].getBoundingClientRect();
       if (r.width > 0 && r.height > 0){
         submitInfo = {tag: els[j].tagName, cx: r.left + r.width/2, cy: r.top + r.height/2,
@@ -139,7 +154,7 @@ JS_READ = r"""
     var all = document.querySelectorAll('a, button, span, div');
     for (var n=0; n<all.length; n++){
       var tt = (all[n].innerText || '').replace(/\s+/g,'');
-      if (tt !== '交卷' && !(tt.indexOf('交卷') >= 0 && tt.length <= 6)) continue;
+      if (!tt || !submitTextOk(tt)) continue;
       var rr = all[n].getBoundingClientRect();
       if (rr.width > 0 && rr.height > 0){
         submitInfo = {tag: all[n].tagName, cx: rr.left + rr.width/2, cy: rr.top + rr.height/2,
@@ -152,16 +167,17 @@ JS_READ = r"""
 
   return J({questionCount: out.length, questions: out, submit: submitInfo});
 })()
-"""
+""", PROFILE)
 
 # ---------------- 点选：按判定结果数组点击（__ANSWERS__ 会被替换）----------------
-JS_APPLY = r"""
+JS_APPLY = inject(r"""
 (function(){
   function J(o){
     return JSON.stringify(o).replace(/[\u007F-\uFFFF]/g, function(c){
       return '\\u' + ('0000' + c.charCodeAt(0).toString(16)).slice(-4);
     });
   }
+  var P = __PROFILE__;
   // ANSWERS 形如：
   //   [{type:'single', answer:'C'},
   //    {type:'multiple', answer:['A','B']},
@@ -170,7 +186,7 @@ JS_APPLY = r"""
   // 兼容旧格式：纯字符串视为 single，纯数组视为 multiple。
   var ANSWERS = __ANSWERS__;
 
-  var CONTAINER_SELS = ['li[class*="subject"]', 'li.subject', '.subject-item', 'div.q', '.question-item', '[class*=question]'];
+  var CONTAINER_SELS = P.question.containers;
   var conts = [];
   for (var s=0; s<CONTAINER_SELS.length; s++){
     var c = document.querySelectorAll(CONTAINER_SELS[s]);
@@ -232,7 +248,7 @@ JS_APPLY = r"""
   }
   return J({applied: result});
 })()
-"""
+""", PROFILE)
 
 
 def _run_osascript(js_path: Path) -> subprocess.CompletedProcess:
@@ -356,7 +372,13 @@ def _exec_via_app(js_code: str, timeout: float = 15.0) -> str:
             continue
         txt = _decode(RESULT_JSON.read_bytes()).strip()
         if not txt:
-            continue
+            # 文件已落盘但内容为空：JS 执行成功、只是没有返回值（如 openConfirm()）。
+            # 复查一次防止读到写入中途的空态，仍为空则按「返回空串」处理，
+            # 不要继续傻等到 15s 超时后误报「未授权」。
+            time.sleep(0.2)
+            txt = _decode(RESULT_JSON.read_bytes()).strip()
+            if not txt:
+                return ""
         try:
             data = json.loads(txt)
             if isinstance(data, dict) and "error" in data:
@@ -403,24 +425,29 @@ def exec_js(js_code: str) -> str:
     执行 JS。优先走独立 Runner.app（授权一次后可全自动），未授权则回退直连 osascript。
     """
     if RUNNER_APP.exists():
-        try:
-            return _exec_via_app(js_code)
-        except RuntimeError as exc:
-            if "NOT_AUTHORIZED" not in str(exc):
-                raise
-            # Runner 未授权 → 回退直连（可能同样失败，届时由调用方导出双击脚本）
+        # 短时间连续调用时（read→apply→submit 一口气跑），Runner 实例可能还没退干净，
+        # 偶发读到陈旧结果而误判为「未授权」。先在调用通道内重试一次，再考虑回退。
+        for _ in range(2):
+            try:
+                return _exec_via_app(js_code)
+            except RuntimeError as exc:
+                if "NOT_AUTHORIZED" not in str(exc):
+                    raise
+                time.sleep(0.5)
+            # 两次都未授权 → 回退直连（沙箱内通常同样失败，届时由调用方导出双击脚本）
     return _exec_via_osascript(js_code)
 
 
 # ---------------- 确认弹窗：查找 / 点击（替代截图找色块）----------------
-JS_CONFIRM = r"""
+JS_CONFIRM = inject(r"""
 (function(){
   function J(o){
     return JSON.stringify(o).replace(/[\u007F-\uFFFF]/g, function(c){
       return '\\u' + ('0000' + c.charCodeAt(0).toString(16)).slice(-4);
     });
   }
-  var KEYS = ['确定','确认','确 定','确 认','提交','是的','继续'];
+  var P = __PROFILE__;
+  var KEYS = P.confirm.texts;
   var out = [];
   var els = document.querySelectorAll('button, a, span, div, input[type=button], input[type=submit]');
   for (var i=0; i<els.length; i++){
@@ -447,16 +474,17 @@ JS_CONFIRM = r"""
   }
   return J({count: out.length, candidates: out});
 })()
-"""
+""", PROFILE)
 
-JS_CLICK_CONFIRM = r"""
+JS_CLICK_CONFIRM = inject(r"""
 (function(){
   function J(o){
     return JSON.stringify(o).replace(/[\u007F-\uFFFF]/g, function(c){
       return '\\u' + ('0000' + c.charCodeAt(0).toString(16)).slice(-4);
     });
   }
-  var KEYS = ['确定','确认','确 定','确 认','提交','是的','继续'];
+  var P = __PROFILE__;
+  var KEYS = P.confirm.texts;
   var els = document.querySelectorAll('button, a, span, div, input[type=button], input[type=submit]');
   var best = null, bestScore = -1;
   for (var i=0; i<els.length; i++){
@@ -479,24 +507,44 @@ JS_CLICK_CONFIRM = r"""
   best.click();
   return J({clicked: true, text: (best.innerText || best.value || '').replace(/\s+/g,'')});
 })()
-"""
+""", PROFILE)
 
 # 页面状态：用于提交后判断是否已离开受测页面（不截图）
-JS_STATE = r"""
+JS_STATE = inject(r"""
 (function(){
   function J(o){
     return JSON.stringify(o).replace(/[\u007F-\uFFFF]/g, function(c){
       return '\\u' + ('0000' + c.charCodeAt(0).toString(16)).slice(-4);
     });
   }
+  var P = __PROFILE__;
+  // 有文本约束时按文本判定「提交按钮是否还在页面上」；无约束的站点返回 false，
+  // 由调用方改用 URL / 题数量变化判断。
+  function isSubmitText(t){
+    var TM = P.submit.textMatch;
+    for (var m=0; m<TM.length; m++){ if (t === TM[m]) return true; }
+    return false;
+  }
   var rs = document.querySelectorAll('input[type=radio]');
   var hasSubmit = false;
-  var all = document.querySelectorAll('a, button, span, div');
-  for (var i=0; i<all.length; i++){
-    var t = (all[i].innerText || '').replace(/\s+/g,'');
-    if (t === '交卷'){
-      var r = all[i].getBoundingClientRect();
-      if (r.width > 0 && r.height > 0){ hasSubmit = true; break; }
+  if (P.submit.textMatch.length){
+    // 有文本约束：按文本判定
+    var all = document.querySelectorAll('a, button, span, div');
+    for (var i=0; i<all.length; i++){
+      var t = (all[i].innerText || '').replace(/\s+/g,'');
+      if (isSubmitText(t)){
+        var r = all[i].getBoundingClientRect();
+        if (r.width > 0 && r.height > 0){ hasSubmit = true; break; }
+      }
+    }
+  } else {
+    // 无文本约束：退回 profile 选择器，判断按钮是否仍可见
+    for (var s=0; s<P.submit.selectors.length && !hasSubmit; s++){
+      var cand = document.querySelectorAll(P.submit.selectors[s]);
+      for (var c=0; c<cand.length; c++){
+        var rr = cand[c].getBoundingClientRect();
+        if (rr.width > 0 && rr.height > 0){ hasSubmit = true; break; }
+      }
     }
   }
   // 以下两项仅用于仿真页(mocks)自检：提交<a>的真实 mousedown 计数 + 是否已确认；
@@ -507,12 +555,12 @@ JS_STATE = r"""
             submitClicks: sc, confirmed: cf,
             head: (document.body ? (document.body.innerText||'').replace(/\s+/g,' ') : '').slice(0, 200)});
 })()
-"""
+""", PROFILE)
 
 
 def _submit_finder_js() -> str:
     """生成「提交」按钮定位 JS（选择器优先，文字兜底）。"""
-    return r"""
+    return inject(r"""
 (function(){
   function J(o){
     return JSON.stringify(o).replace(/[\u007F-\uFFFF]/g, function(c){
@@ -531,33 +579,45 @@ def _submit_finder_js() -> str:
             chromeH: window.outerHeight - window.innerHeight,
             scrollY: window.scrollY};
   }
-  // ① 源码级选择器（实测：顶部全屏头按钮 + 底部 paper-footer 按钮）
-  var SELS = ['a.button.full-screen-header-button.button-green',
-              'a.full-screen-header-button',
-              'div.paper-footer a.button.button-green',
-              'div.paper-footer a.button'];
+  var P = __PROFILE__;
+  // 文本约束：textMatch 为空 → 不约束；否则「完全相等」或「包含且长度≤6」都算命中
+  function submitTextOk(s){
+    var TM = P.submit.textMatch;
+    if (!TM.length) return true;
+    for (var m=0; m<TM.length; m++){
+      if (s === TM[m]) return true;
+      if (s.indexOf(TM[m]) >= 0 && s.length <= 6) return true;
+    }
+    return false;
+  }
+  // ① 源码级选择器（按 profile 顺序，首个命中即返回）
+  var SELS = P.submit.selectors;
   for (var i=0; i<SELS.length; i++){
     var els = document.querySelectorAll(SELS[i]);
     for (var j=0; j<els.length; j++){
       var t = (els[j].innerText || '').replace(/\s+/g, '');
-      if (t && t.indexOf('交卷') < 0) continue;
+      if (t && !submitTextOk(t)) continue;
       var v = info(els[j], 'selector:' + SELS[i]);
       if (v) return J(v);
     }
   }
-  // ② 文字兜底：排除隐藏弹窗内的同名元素
+  // ② 文字兜底：排除隐藏弹窗内的同名元素（skipAncestors 由 profile 提供）
   var all = document.querySelectorAll('a, button, span, div');
   for (var k=0; k<all.length; k++){
     var el = all[k];
-    if (el.closest('.popup-area') || el.closest('.ivu-modal-wrap')) continue;
+    var skip = false;
+    for (var a=0; a<P.submit.skipAncestors.length; a++){
+      if (el.closest(P.submit.skipAncestors[a])){ skip = true; break; }
+    }
+    if (skip) continue;
     var tx = (el.innerText || '').replace(/\s+/g, '');
-    if (tx !== '交卷' && !(tx.indexOf('交卷') >= 0 && tx.length <= 6)) continue;
+    if (!tx || !submitTextOk(tx)) continue;
     var v2 = info(el, 'text');
     if (v2) return J(v2);
   }
   return J(null);
 })()
-"""
+""", PROFILE)
 
 
 JS_SUBMIT = _submit_finder_js()
@@ -573,17 +633,22 @@ def read_state() -> dict:
     return json.loads(exec_js(JS_STATE))
 
 
-# ---------------- 确认弹窗（源码级：ivu-modal / reveal-modal）----------------
-_MODAL_PROBE = r"""
+# ---------------- 确认弹窗（源码级：按 profile 的 modalSelectors 定位）----------------
+_MODAL_PROBE = inject(r"""
+  var P = __PROFILE__;
   function visibleModals(){
-    var out = [], sels = ['.ivu-modal-wrap', '.reveal-modal', '.popup-area'];
+    var out = [], sels = P.confirm.modalSelectors;
     for (var s=0; s<sels.length; s++){
       var els = document.querySelectorAll(sels[s]);
       for (var i=0; i<els.length; i++){
         var el = els[i];
         var cs = getComputedStyle(el);
         if (cs.display === 'none' || cs.visibility === 'hidden' || cs.opacity === '0') continue;
-        if (el.className && String(el.className).indexOf('ivu-modal-hidden') >= 0) continue;
+        var hidden = false, HM = P.confirm.hiddenMarkers;
+        for (var h=0; h<HM.length; h++){
+          if (el.className && String(el.className).indexOf(HM[h]) >= 0){ hidden = true; break; }
+        }
+        if (hidden) continue;
         var r = el.getBoundingClientRect();
         if (r.width <= 0 || r.height <= 0) continue;
         out.push(el);
@@ -591,12 +656,12 @@ _MODAL_PROBE = r"""
     }
     return out;
   }
-  var GO = ['我知道了','确定','确认','确 定','提交','继续','是的','是'];
-  var NO = ['取消','关闭','返回','再想想'];
+  var GO = P.confirm.modalAcceptTexts;
+  var NO = P.confirm.modalRejectTexts;
   function pickBtn(modal){
-    // 宽泛匹配 modal 内所有可点元素：真实页面确认按钮常为 <a class="ivu-btn ...">，
-    // 旧选择器 a.button / a.btn 匹配不到（class 是 ivu-btn 而非 button/btn），会导致
-    // 确认弹窗"找到却被跳过"，弹窗滞留 → 用户被迫再次点提交。这里改成匹配全部 a/button。
+    // 宽泛匹配 modal 内所有可点元素：部分站点确认按钮由 UI 框架生成，形如
+    // <a class="xxx-btn xxx-btn--primary">；旧的 a.button / a.btn 选择器匹配不到这种
+    // class 命名，会出现「弹窗找到了但按钮被跳过」→ 弹窗滞留 → 被迫再次点提交。
     var btns = modal.querySelectorAll('button, a, input[type=button], input[type=submit]');
     var best = null, bestScore = -1;
     for (var i=0; i<btns.length; i++){
@@ -616,7 +681,7 @@ _MODAL_PROBE = r"""
     }
     return best;
   }
-"""
+""")
 
 JS_MODAL = r"""
 (function(){
