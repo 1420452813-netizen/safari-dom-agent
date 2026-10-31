@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleName</key>
+    <string>TronClass</string>
+    <key>CFBundleDisplayName</key>
+    <string>TronClass Auto Solver</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.tronclass.autosolver</string>
+    <key>CFBundleExecutable</key>
+    <string>DOMLauncher</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>3.0.0</string>
+    <key>CFBundleVersion</key>
+    <string>3.0.0</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>12.0</string>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+    <key>NSPrincipalClass</key>
+    <string>NSApplication</string>
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.education</string>
+    <key>CFBundleDocumentTypes</key>
+    <array/>
+</dict>
+</plist>

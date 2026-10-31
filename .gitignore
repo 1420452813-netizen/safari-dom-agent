@@ -1,0 +1,40 @@
+# ===== 发布安全：绝不提交真实密钥 =====
+config.py
+
+# ===== Python =====
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# ===== 运行产物（含真实答案/题目，可能含隐私）=====
+questions.json
+answers.json
+apply_result.json
+export_result.json
+*.result.json
+
+# ===== 桌面导出脚本（用户本地双击用，含本机路径）=====
+1_读题.applescript
+2_答题.applescript
+_tronclass_dom.js
+
+# ===== 视觉方案模板（用户本地框选，非通用）=====
+assets/
+
+# ===== 杂项 =====
+.DS_Store
+context_source.txt
+context_summary.md
+*.zip
+
+# ===== IDE（PyCharm / JetBrains）=====
+.idea/
+
+# ===== 构建产物（可分发生成，不入库）=====
+TronClass.app/
+build_app/
+build/
+dist/
+*.spec

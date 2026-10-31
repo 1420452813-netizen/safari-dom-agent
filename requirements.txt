@@ -1,0 +1,9 @@
+# 极简依赖（TC-SPEC-2026-V3：剥离 OpenCV / NumPy，减少打包体积）
+# 注意：pyautogui 经 pyscreeze 顶层 import PIL，故 Pillow 必须保留，否则 import 失败。
+openai>=1.0.0
+zhipuai>=2.0.0
+pyautogui>=0.9.54
+pyperclip>=1.8.2
+Pillow>=10.0.0
+pyobjc-framework-Quartz>=9.0
+pyinstaller>=6.0.0
