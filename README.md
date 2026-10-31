@@ -141,7 +141,7 @@
 ### 方式二：从源码构建（面向开发者）
 
 ```bash
-git clone https://github.com/<you>/safari-dom-agent.git
+git clone https://github.com/1420452813-netizen/safari-dom-agent.git
 cd safari-dom-agent
 
 python3 -m venv .venv && source .venv/bin/activate

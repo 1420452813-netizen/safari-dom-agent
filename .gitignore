@@ -28,6 +28,7 @@ assets/
 context_source.txt
 context_summary.md
 *.zip
+*.bundle
 
 # ===== IDE（PyCharm / JetBrains）=====
 .idea/
