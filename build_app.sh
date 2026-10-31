@@ -63,6 +63,12 @@ swiftc "$SRC/Launcher.swift" -o "$STAGE/Contents/MacOS/DOMLauncher" -O
 # [4] 组装 .app 包
 # ---------------------------------------------------------------------------
 echo "==> [4/7] 组装 .app 包"
+# 执行通道按需生成：二进制不入库（仓库只保留 runner.applescript 源码）。
+# 首次构建会现场编译出一个独立 bundle；它有自己的签名身份，首次运行时需授权一次。
+if [ ! -d "$SRC/exports/DOMRunner.app" ]; then
+    echo "    → 未发现 DOMRunner.app，从源码编译"
+    osacompile -o "$SRC/exports/DOMRunner.app" "$SRC/exports/runner.applescript"
+fi
 cp "$DIST/dom_main_bin"                       "$STAGE/Contents/MacOS/dom_main_bin"
 ditto "$SRC/exports/DOMRunner.app"            "$STAGE/Contents/Resources/DOMRunner.app"
 cp "$SRC/assets/AppIcon.icns"                 "$STAGE/Contents/Resources/AppIcon.icns"
